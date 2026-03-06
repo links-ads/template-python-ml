@@ -1,71 +1,71 @@
 # python-template
-A simple template to bootstrap Python packages.
-It should be slightly faster than starting from scratch each time.
+
+A simple template to bootstrap Python packages with [uv](https://docs.astral.sh/uv/).
 
 ## Features
 
-- 🍨 **As vanilla as it gets** - Pure standard python, including `setuptools` as build tool.
-- ✏️ **One config file** - The `pyproject.toml` handles everything: dependencies, tools, versioning.
-- 🏷️ **Dynamic versioning** - The package version is dynamically set at build time, taken from `package_name.__version__`
+- **uv-native** — environment management, dependency resolution, and versioning in one tool.
+- **One config file** — `pyproject.toml` handles everything: dependencies, tools, versioning.
+- **Ruff** — single tool for linting and formatting (replaces black, isort, flake8).
+- **hatchling** — lightweight, modern build backend.
 
 ## Getting Started
 
-To use this template, follow these steps:
-
-1. Click the "Use this template" button at the top of the repository and follow the procedure.
-
-2. Clone your new repository to your local machine:
+1. Click "Use this template" and clone your new repository:
 
    ```bash
    git clone https://github.com/your-username/your-repo.git
-   ```
-
-3. Navigate to the project directory. Optional but recommended: create and activate a Python virtual environment to isolate your project's dependencies.
-E.g.:
-
-   ```bash
    cd your-repo
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows, use .venv\Scripts\activate
    ```
-5. The template provides a simple "self-destructing" initialization script, `init.py`, that automatically provides the necessary information to generate a fully functional python package (project name, author, ...).
-From a python environment, or any other means, this script can be launched as easily as:
 
-    ```bash
-    # launch and follow the prompts
-    python init.py
-    ```
-
-6. Install the required dependencies:
+2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if you haven't already:
 
    ```bash
-    # Install the bare minimum, editable is usually preferred when developing
-   pip install -e .
-   # Install extras
-   pip install -e .[dev|docs|test]
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
+3. Run the initialization script and follow the prompts:
 
-7. You're good to go! Of course, you can further customize it to your liking.
+   ```bash
+   python init.py
+   ```
+
+4. Install all dependencies:
+
+   ```bash
+   uv sync --all-groups
+   ```
+
+5. You're good to go. Run `make help` to see all available commands.
 
 > **Note**
 >
-> The `init.py` script is self-contained and will delete itself once the procedure is completed. It is absolutely safe to delete if you prefer to edit the files manually.
+> `init.py` is self-contained and will delete itself once completed.
+> It is safe to delete and edit the files manually instead.
 
-## Extra goodies
+## Common Commands
 
-If you are using VS Code as your editor of choice, you can use the following
-snippet in your `settings.json` file to format and sort imports on save.
+| Command        | Description                                  |
+|----------------|----------------------------------------------|
+| `make sync`    | Install all dependency groups                |
+| `make fmt`     | Format and auto-fix code with ruff           |
+| `make lint`    | Check style and lint (no changes)            |
+| `make test`    | Run tests with coverage report               |
+| `make clean`   | Remove build artifacts and cache files       |
+| `make release` | Bump version, tag, and push a new release    |
+
+## VS Code
+
+To format and sort imports on save, add this to your `settings.json`:
 
 ```json
 {
-    "python.formatting.provider": "black",
     "[python]": {
         "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.codeActionsOnSave": {
-            "source.organizeImports": true
-        },
-    },
+            "source.organizeImports": "explicit"
+        }
+    }
 }
 ```
-Of course, this is completely optional.

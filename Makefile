@@ -1,84 +1,82 @@
+# derived from https://github.com/pydantic/pydantic
+.DEFAULT_GOAL := help
+sources = src tests tools
 .ONESHELL:
-PY_ENV=.venv
-PY_BIN=$(shell python -c "print('$(PY_ENV)/bin') if __import__('pathlib').Path('$(PY_ENV)/bin/pip').exists() else print('')")
 
-.PHONY: help
-help:				## This help screen
-	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'
+.PHONY: .uv  ## Check that uv is installed
+.uv:
+	@uv -V || echo 'Please install uv: https://docs.astral.sh/uv/getting-started/installation/'
 
-.PHONY: init
-init:				## Initialize the project template
-	@$(PY_BIN)/python init.py
+.PHONY: .pre-commit  ## Check that pre-commit is installed
+.pre-commit: .uv
+	@uv run pre-commit -V || uv pip install pre-commit
 
-.PHONY: show
-show:				## Show the current environment.
-	@echo "Current environment:"
-	@echo "Running using $(PY_BIN)"
-	@$(PY_BIN)/python -V
-	@$(PY_BIN)/python -m site
+.PHONY: install  ## Install all dependencies and pre-commit hooks
+install: .uv
+	uv sync --all-groups
+	uv run pre-commit install --install-hooks
 
-.PHONY: check-venv
-check-venv:			## Check if the virtualenv exists.
-	@if [ "$(PY_BIN)" = "" ]; then echo "No virtualenv detected, create one using 'make virtualenv'"; exit 1; fi
+.PHONY: format  ## Auto-format source files with ruff
+format: .uv
+	uv run ruff check --fix $(sources)
+	uv run ruff format $(sources)
 
-.PHONY: install
-install: check-venv		## Install the project in dev mode.
-	@$(PY_BIN)/pip install -e .[dev,docs,test]
+.PHONY: lint  ## Lint source files with ruff
+lint: .uv
+	uv run ruff check $(sources)
+	uv run ruff format --check $(sources)
 
-.PHONY: fmt
-fmt: check-venv			## Format code using black & isort.
-	$(PY_BIN)/isort -v --src src/ tests/ --virtual-env $(PY_ENV)
-	$(PY_BIN)/black src/ tests/
+.PHONY: test  ## Run tests with coverage report
+test: .uv
+	uv run coverage run -m pytest --durations=10
+	uv run coverage xml
+	uv run coverage html
 
-.PHONY: lint
-lint: check-venv		## Run ruff, black, mypy (optional).
-	@$(PY_BIN)/ruff check src/
-	@$(PY_BIN)/black --check src/ tests/
-	@if [ -x "$(PY_BIN)/mypy" ]; then $(PY_BIN)/mypy project_name/; else echo "mypy not installed, skipping"; fi
+.PHONY: all  ## Run lint and tests
+all: lint test
 
-.PHONY: test
-test: lint			## Run tests and generate coverage report.
-	$(PY_BIN)/pytest -v --cov-config .coveragerc --cov=project_name -l --tb=short --maxfail=1 tests/
-	$(PY_BIN)/coverage xml
-	$(PY_BIN)/coverage html
+.PHONY: docs  ## Build documentation
+docs: .uv
+	uv run mkdocs build --strict
 
-.PHONY: clean
-clean:				## Clean unused files (VENV=true to also remove the virtualenv).
-	@find ./ -name '*.pyc' -exec rm -f {} \;
-	@find ./ -name '__pycache__' -exec rm -rf {} \;
-	@find ./ -name 'Thumbs.db' -exec rm -f {} \;
-	@find ./ -name '*~' -exec rm -f {} \;
-	@rm -rf .cache
-	@rm -rf .pytest_cache
-	@rm -rf .mypy_cache
-	@rm -rf .ruff_cache
-	@rm -rf build
-	@rm -rf dist
-	@rm -rf *.egg-info
-	@rm -rf htmlcov
-	@rm -rf .tox/
-	@rm -rf docs/_build
-	@if [ "$(VENV)" != "" ]; then echo "Removing virtualenv..."; rm -rf $(PY_ENV); fi
+.PHONY: docs-serve  ## Serve documentation locally for preview
+docs-serve: .uv
+	uv run mkdocs serve --strict
 
-.PHONY: virtualenv
-virtualenv:			## Create a virtual environment.
-	@echo "creating virtualenv ..."
-	@if [ "$(PY_BIN)" != "" ]; then echo "virtualenv already exists, use 'make clean' to remove it."; exit; fi
-	@python3 -m venv $(PY_ENV)
-	@./$(PY_ENV)/bin/pip install -U pip
-	@echo
-	@echo "==| Please run 'source $(PY_ENV)/bin/activate' to enable the environment |=="
+.PHONY: clean  ## Clear local caches and build artifacts
+clean:
+	rm -rf `find . -name __pycache__`
+	rm -f `find . -type f -name '*.py[co]'`
+	rm -f `find . -type f -name '*~'`
+	rm -rf .cache
+	rm -rf .pytest_cache
+	rm -rf .ruff_cache
+	rm -rf htmlcov
+	rm -rf *.egg-info
+	rm -f .coverage .coverage.*
+	rm -rf build dist site
+	rm -rf docs/_build
+	rm -f coverage.xml
 
-.PHONY: release
-release:			## Create a new tag for release.
-	@echo "WARNING: This operation will create s version tag and push to github"
-	@read -p "Version? (provide the next x.y.z semver) : " TAG
-	@VER_FILE=$$(find src -maxdepth 2 -type f -name 'version.py' | head -n 1)
-	@echo "Updating version file :\n $${VER_FILE}"
-	@echo __version__ = \""$${TAG}"\" > $${VER_FILE}
-	@$(PY_BIN)/gitchangelog > HISTORY.md
-	@git add $${VER_FILE} HISTORY.md
-	@git commit -m "release: version v$${TAG} 🚀"
-	@echo "creating git tag : v$${TAG}"
-	@git tag v$${TAG}
-	@git push -u origin HEAD --tags
+.PHONY: release  ## Bump version, commit, tag and push (BUMP=major|minor|patch)
+release: .uv
+ifndef BUMP
+	$(error BUMP is not set. Usage: make release BUMP=major|minor|patch)
+endif
+	@echo "Current version: $$(uv version)"
+	@uv version --bump $(BUMP)
+	@NEW_VERSION=$$(uv version --short)
+	@echo "New version: v$$NEW_VERSION"
+	@git add pyproject.toml
+	@git commit -m "release: version v$$NEW_VERSION"
+	@git tag -a "v$$NEW_VERSION" -m "Release v$$NEW_VERSION"
+	@git push
+	@git push origin tag v$$NEW_VERSION
+	@echo "version bumped to $$NEW_VERSION — run 'uv publish' if needed"
+
+.PHONY: help  ## Display this help
+help:
+	@grep -E \
+		'^.PHONY: .*?## .*$$' $(MAKEFILE_LIST) | \
+		sort | \
+		awk 'BEGIN {FS = ".PHONY: |## "}; {printf "\033[36m%-19s\033[0m %s\n", $$2, $$3}'

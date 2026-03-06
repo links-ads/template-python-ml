@@ -1,9 +1,11 @@
-"""
-Remove this file and the __main__.py file if you don't want to provide
-a command line interface for your project.
-"""
+import argparse
+
+from project_name.core import greet
 
 
-def main():
-    """Entry point for the application script"""
-    print("Hi, I'm your cli!")
+def main() -> None:
+    """Entry point for the CLI."""
+    parser = argparse.ArgumentParser(description="project-name CLI")
+    parser.add_argument("name", help="name to greet")
+    args = parser.parse_args()
+    print(greet(args.name))
