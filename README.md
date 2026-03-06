@@ -1,4 +1,4 @@
-# python-template
+# python ML template
 
 A simple template to bootstrap Python packages with [uv](https://docs.astral.sh/uv/).
 
